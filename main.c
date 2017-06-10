@@ -24,8 +24,8 @@ uint16_t *compute_dense_connectivity(uint8_t num_nodes) {
 
 	srand(time(NULL));
 	while(num_edges < goal) {
-		uint16_t v1 = rand();
-		uint16_t v2 = rand();
+		uint16_t v1 = rand()%num_nodes;
+		uint16_t v2 = rand()%num_nodes;
 
 		fprintf(stderr, "v1 = %d, v2 = %d\n", v1, v2);
 
@@ -72,7 +72,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	/*initialize network connectivity (who is adjacent to whom)*/
-	edges = compute_connectivity(num_nodes);
+	edges = compute_dense_connectivity(num_nodes);
 
 	return 0;
 }
