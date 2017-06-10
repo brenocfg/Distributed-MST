@@ -2,9 +2,6 @@
 
 /*entry point*/
 uint8_t main (int argc, char *argv[]) {
-	uint8_t num_nodes;
-	uint16_t *edges;
-
 	/*check for number of input arguments*/
 	if (argc < 2) {
 		fprintf(stderr, "Not enough arguments!\n");
@@ -19,7 +16,9 @@ uint8_t main (int argc, char *argv[]) {
 		con_flag = atoi(argv[2]);
 	}
 
+
 	/*compute number of nodes and check for validity*/
+	uint8_t num_nodes;
 	num_nodes = atoi(argv[1]);
 	if (num_nodes > 100) {
 		fprintf(stderr, "Too many nodes! (max: 100)\n");
@@ -33,6 +32,7 @@ uint8_t main (int argc, char *argv[]) {
 	}
 
 	/*initialize network connectivity (who is adjacent to whom)*/
+	uint16_t *edges;
 	if (con_flag) {
 		edges = compute_dense_connectivity(num_nodes);
 	}
@@ -41,16 +41,23 @@ uint8_t main (int argc, char *argv[]) {
 	}
 
 	/*initialize socket pairs for each edge*/
-	if (init_sockets(edges, num_nodes) == 0) {
+	uint16_t *sockets;
+	sockets = init_sockets(edges, num_nodes);
+	if (sockets == NULL) {
 		return 0;
 	}
 
+	print_edges(sockets, num_nodes);
+	
 	return 1;
 }
 
 
 uint8_t init_sockets(uint16_t *edges, uint8_t num_nodes) {
-	uint16_t *weights;
+	uint16_t *weights, *sockets;
+
+	weights = calloc(num_nodes*num_nodes, sizeof(uint16_t));
+	sockets = calloc(num_nodes*num_nodes, sizeof(uint16_t));
 
 	int16_t i, j;
 	for (i = 0; i < num_nodes; i++) {
@@ -62,17 +69,17 @@ uint8_t init_sockets(uint16_t *edges, uint8_t num_nodes) {
 
 				if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd_pair) == -1) {
 					fprintf(stderr, "Error when creating socket pair!\n");
-					return 0;
+					return NULL;
 				}
 
-				edges[i*num_nodes + j] = fd_pair[0];
-				edges[j*num_nodes + i] = fd_pair[1];
+				sockets[i*num_nodes + j] = fd_pair[0];
+				sockets[j*num_nodes + i] = fd_pair[1];
 				weights[weight] = 1;
 			}
 		}
 	}
 
-	return 1;
+	return sockets;
 }
 
 uint16_t *compute_dense_connectivity(uint8_t num_nodes) {
