@@ -7,26 +7,42 @@
 /*computes a connectivity matrix, where edges[i][j] being positive will
 correspond to nodes i and j being neighbours, and the value of the cell itself
 will be the weight of the edge, as well as the id for the file descriptor of
-the socket used to implement the edge
+the socket used to implement the edge. This is safe because to simplify this
+implementation of GHS, we can assume all edges have distinct weights
 
-this is safe because to simplify this implementation of GHS, we can assume all
-edges have distinct weights*/
-uint16_t *compute_connectivity(uint8_t num_nodes) {
-	uint16_t *edges;
-	uint16_t num_edges;
-	uint16_t goal;
+this is the DENSE connectivity version, which computes (n-1)(n-2)/2 + 1 edges,
+which guarantees a connected undirected graph, for any number of nodes*/
+uint16_t *compute_dense_connectivity(uint8_t num_nodes) {
+	uint16_t *edges, *weights;
+	uint16_t num_edges, goal;
 
 	goal = (((num_nodes-1) * (num_nodes-2)) / 2) + 1;
 	num_edges = 0;
 
 	edges = calloc(num_nodes*num_nodes, sizeof(uint16_t));
+	weights = calloc(num_nodes, sizeof(uint8_t));
 
 	srand(time(NULL));
 	while(num_edges < goal) {
-		uint16_t v1 = rand()
-		
-	}
+		uint16_t v1 = rand();
+		uint16_t v2 = rand();
 
+		fprintf(stderr, "v1 = %d, v2 = %d\n", v1, v2);
+
+		if (v1 == v2 || edges[v1*num_nodes + v2]) {
+			fprintf(stderr, "invalid edge!\n");
+			continue;
+		}
+
+		uint16_t weight = -1;
+		while (weight < 1) {
+			fprintf(stderr, "1 weight = %d\n", weight);
+			weight = rand();
+			fprintf(stderr, "2 weight = %d\n", weight);
+			weight = (weights[weight]) ? weight : -1;
+			fprintf(stderr, "3 weight = %d\n", weight);
+		}
+	}
 	return NULL;
 }
 
