@@ -47,13 +47,21 @@ uint8_t main (int argc, char *argv[]) {
 		return 0;
 	}
 
-	print_edges(sockets, num_nodes);
-	
+	char msg[50] = "Testing!";
+	char recvmsg[50];
+	int sendsock = sockets[1];
+	int recvsock = sockets[num_nodes];
+
+	fprintf(stderr, "Sending message: %s\n", msg);
+	send(sendsock, msg, sizeof(msg), 0);
+	recv(recvsock, recvmsg, sizeof(recvmsg), 0);
+	fprintf(stderr, "Received message: %s\n", recvmsg);
+
 	return 1;
 }
 
 
-uint8_t init_sockets(uint16_t *edges, uint8_t num_nodes) {
+uint8_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
 	uint16_t *weights, *sockets;
 
 	weights = calloc(num_nodes*num_nodes, sizeof(uint16_t));
@@ -61,11 +69,11 @@ uint8_t init_sockets(uint16_t *edges, uint8_t num_nodes) {
 
 	int16_t i, j;
 	for (i = 0; i < num_nodes; i++) {
-		for (j = 0; j< num_nodes; j++) {
+		for (j = 0; j < num_nodes; j++) {
 			int16_t weight = edges[i*num_nodes + j];
 
 			if (weight && !weights[weight]) {
-				int16_t fd_pair[2];
+				int fd_pair[2];
 
 				if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd_pair) == -1) {
 					fprintf(stderr, "Error when creating socket pair!\n");

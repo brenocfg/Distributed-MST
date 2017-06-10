@@ -28,7 +28,7 @@ the communication channels between the nodes.
 NOTE: this is not a very efficient way of doing this, since we're going through
 n^2 matrix cells to create not as many sockets, but the number of nodes will
 never be too large anyway, so we're ok with it*/
-uint8_t init_sockets(uint16_t *edges, uint8_t num_nodes);
+uint16_t *init_sockets(uint16_t *edges, uint8_t num_nodes);
 
 /*prints adjacency matrix to standard output, for debugging purposes*/
 void print_edges(uint16_t *edges, uint8_t num_nodes);
