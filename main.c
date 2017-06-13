@@ -1,3 +1,4 @@
+#include "node.h"
 #include "main.h"
 
 /*entry point*/
@@ -15,7 +16,6 @@ uint8_t main (int argc, char *argv[]) {
 	if (argc == 3) {
 		con_flag = atoi(argv[2]);
 	}
-
 
 	/*compute number of nodes and check for validity*/
 	uint8_t num_nodes;
@@ -47,26 +47,58 @@ uint8_t main (int argc, char *argv[]) {
 		return 0;
 	}
 
-	char msg[50] = "Testing!";
-	char recvmsg[50];
-	int sendsock = sockets[1];
-	int recvsock = sockets[num_nodes];
+	/*initialize global log file (shared by all nodes)*/
+	FILE *globallog = fopen("global.log", "w");
+	fflush(globallog);
 
-	fprintf(stderr, "Sending message: %s\n", msg);
-	send(sendsock, msg, sizeof(msg), 0);
-	recv(recvsock, recvmsg, sizeof(recvmsg), 0);
-	fprintf(stderr, "Received message: %s\n", recvmsg);
+	/*spawn child processes for each node, and let them run*/
+	int32_t i, pid;
+	for (i = 0; i < num_nodes; i++) {
+		/*child processes will run this, and init and run their own node*/
+		if ((pid = fork()) == 0) {
+			/*declare and initialize the node*/
+			struct node *newnode;
+			newnode = init_node(i, edges, sockets, num_nodes, globallog);
+
+			/*Run whatever algorithm here. At this point, the nodes should be agnostic
+			to any global information from the parent process, such as the edge/socket
+			map, and should only rely on information that is self-contained to their
+			own initialized structure*/
+			test_node(newnode);
+
+			/*free the node's memory in the child process*/
+			free_node(newnode);
+
+			/*child process cannot keep iterating!*/
+			break;
+		}
+	}
+
+	free(edges);
+	free(sockets);
+	fclose(globallog);
+
+	/*child processes are done at this point, so return them*/
+	if (pid == 0) {
+		return 1;
+	}
+
+	/*parent needs to wait for all child processes (nodes) to finish executing*/
+	int32_t status = 0;
+	while(wait(&status) > 0) {}
 
 	return 1;
 }
 
 
-uint8_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
+uint16_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
 	uint16_t *weights, *sockets;
 
+	/*weights for unique edges, sockets is our socket map*/
 	weights = calloc(num_nodes*num_nodes, sizeof(uint16_t));
 	sockets = calloc(num_nodes*num_nodes, sizeof(uint16_t));
 
+	/*compute socket pairs for each edge*/
 	int16_t i, j;
 	for (i = 0; i < num_nodes; i++) {
 		for (j = 0; j < num_nodes; j++) {
@@ -80,6 +112,7 @@ uint8_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
 					return NULL;
 				}
 
+				/*each node gets a different socket*/
 				sockets[i*num_nodes + j] = fd_pair[0];
 				sockets[j*num_nodes + i] = fd_pair[1];
 				weights[weight] = 1;
@@ -87,6 +120,7 @@ uint8_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
 		}
 	}
 
+	free(weights);
 	return sockets;
 }
 
@@ -100,7 +134,7 @@ uint16_t *compute_dense_connectivity(uint8_t num_nodes) {
 
 	/*edges will be our connectivity matrix, weights will guarantee uniqueness*/
 	edges = calloc(num_nodes*num_nodes, sizeof(uint16_t));
-	weights = calloc(num_nodes*(num_nodes-1), sizeof(uint8_t));
+	weights = calloc((num_nodes*(num_nodes-1))+1, sizeof(uint16_t));
 
 	/*generate random edges until we reach goal*/
 	srand(time(NULL));
@@ -139,7 +173,7 @@ uint16_t *compute_sparse_connectivity(uint8_t num_nodes) {
 
 	/*edges will be our connectivity matrix, weights will guarantee uniqueness*/
 	edges = calloc(num_nodes*num_nodes, sizeof(uint16_t));
-	weights = calloc(num_nodes*(num_nodes-1), sizeof(uint8_t));
+	weights = calloc((num_nodes*(num_nodes-1))+1, sizeof(uint16_t));
 
 	/*generate random n-1 random weight edges (which connects the graph)*/
 	srand(time(NULL));
@@ -183,15 +217,25 @@ uint16_t *compute_sparse_connectivity(uint8_t num_nodes) {
 		num_edges++;
 	}
 
+	free(weights);
 	return edges;
 }
 
-void print_edges(uint16_t *edges, uint8_t num_nodes) {
+void print_network(uint16_t *edges, uint16_t *socks, uint8_t num, FILE *stream){
 	int16_t i, j;
-	for (i = 0; i < num_nodes; i++) {
-		for (j = 0; j < num_nodes; j++) {
-			fprintf(stdout, "%d\t", edges[i*num_nodes + j]);
+	for (i = 0; i < num; i++) {
+		for (j = 0; j < num; j++) {
+			fprintf(stream, "%d\t", edges[i*num + j]);
 		}
-		fprintf(stdout, "\n");
+		fprintf(stream, "\n");
 	}
+	fprintf(stream, "\n\n");
+
+	for (i = 0; i < num; i++) {
+		for (j = 0; j < num; j++) {
+			fprintf(stream, "%d\t", socks[i*num + j]);
+		}
+		fprintf(stream, "\n");
+	}
+	fprintf(stream, "\n\n");
 }

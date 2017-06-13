@@ -4,6 +4,7 @@
 #include <stdio.h>      /*what's computing without some input?*/
 #include <stdlib.h>     /*because the heap wants to be used and abused*/
 #include <sys/socket.h> /*UNIX sockets yay*/
+#include <sys/wait.h>
 
 /*computes a connectivity matrix, where edges[i][j] being positive will
 correspond to nodes i and j being neighbours, and the value of the cell itself
@@ -30,5 +31,5 @@ n^2 matrix cells to create not as many sockets, but the number of nodes will
 never be too large anyway, so we're ok with it*/
 uint16_t *init_sockets(uint16_t *edges, uint8_t num_nodes);
 
-/*prints adjacency matrix to standard output, for debugging purposes*/
-void print_edges(uint16_t *edges, uint8_t num_nodes);
+/*prints adjacency matrix and socket map to given stream, for debug purposes*/
+void print_network(uint16_t *edges, uint16_t *socks, uint8_t num, FILE *stream);
