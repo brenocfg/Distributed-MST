@@ -67,7 +67,7 @@ int main (int argc, char *argv[]) {
 			to any global information from the parent process, such as the edge/socket
 			map, and should only rely on information that is self-contained to their
 			own initialized structure*/
-			run_node(newnode);
+			run_node(newnode, fun);
 
 			/*free the node's memory in the child process*/
 			free_node(newnode);
