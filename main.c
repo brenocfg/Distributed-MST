@@ -1,7 +1,7 @@
 #include "main.h"
 
 /*entry point*/
-uint8_t main (int argc, char *argv[]) {
+int main (int argc, char *argv[]) {
 	/*check for number of input arguments*/
 	if (argc < 2) {
 		fprintf(stderr, "Not enough arguments!\n");
@@ -46,9 +46,11 @@ uint8_t main (int argc, char *argv[]) {
 		return 0;
 	}
 
-	/*initialize global log file (shared by all nodes)*/
+	/*initialize global log file (shared by all nodes), disable buffering for
+	"real-time" logging*/
 	FILE *globallog = fopen("global.log", "w");
 	fflush(globallog);
+	setbuf(globallog, NULL);
 
 	/*spawn child processes for each node, and let them run*/
 	int32_t i, pid;
@@ -59,7 +61,7 @@ uint8_t main (int argc, char *argv[]) {
 			struct node *newnode;
 			newnode = init_node(i, edges, sockets, num_nodes, globallog);
 			void (*fun) (struct node *node);
-			fun = &ghs; 
+			fun = &ghs;
 
 			/*Run whatever algorithm here. At this point, the nodes should be agnostic
 			to any global information from the parent process, such as the edge/socket
@@ -135,7 +137,7 @@ uint16_t *compute_dense_connectivity(uint8_t num_nodes) {
 
 	/*edges will be our connectivity matrix, weights will guarantee uniqueness*/
 	edges = calloc(num_nodes*num_nodes, sizeof(uint16_t));
-	weights = calloc((num_nodes*(num_nodes-1))+1, sizeof(uint16_t));
+	weights = calloc(num_nodes*num_nodes, sizeof(uint16_t));
 
 	/*generate random edges until we reach goal*/
 	srand(time(NULL));
@@ -174,7 +176,7 @@ uint16_t *compute_sparse_connectivity(uint8_t num_nodes) {
 
 	/*edges will be our connectivity matrix, weights will guarantee uniqueness*/
 	edges = calloc(num_nodes*num_nodes, sizeof(uint16_t));
-	weights = calloc((num_nodes*(num_nodes-1))+1, sizeof(uint16_t));
+	weights = calloc(num_nodes*num_nodes, sizeof(uint16_t));
 
 	/*generate random n-1 random weight edges (which connects the graph)*/
 	srand(time(NULL));

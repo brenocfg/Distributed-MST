@@ -4,17 +4,15 @@ struct node *init_node(int32_t id, uint16_t *edges, uint16_t *socks, uint8_t num
               FILE *globallog) {
   struct node *newnode;
 
-  /*Initialize the node's reference to the global log*/
+  /*Initialize the node's memory, ID and global log pointer*/
+  newnode = (struct node*) malloc(sizeof(struct node));
   newnode->globallog = globallog;
+  newnode->id = id;
 
   /*log beginning of execution*/
   sleep(id);
   uint64_t stamp = (uint64_t) time(NULL);
   fprintf(newnode->globallog, "[%lu] Node %d has begun executing!\n",stamp,id);
-
-  /*allocate memory for the node, and initialize its ID*/
-  newnode = (struct node*) malloc(sizeof(struct node));
-  newnode->id = id;
 
   /*allocate and initialize edge list, with proper weight/socket pairs*/
   uint8_t i;
@@ -38,6 +36,7 @@ struct node *init_node(int32_t id, uint16_t *edges, uint16_t *socks, uint8_t num
   memset(logfilename, 0, 7);
   snprintf(logfilename, 7, "%d.log", id);
   newnode->log = fopen(logfilename, "w");
+  setbuf(newnode->log, NULL);
 
   return newnode;
 }
