@@ -6,7 +6,8 @@
 #include <time.h>       /*timestamps*/
 #include <unistd.h>     /*sleeps and stuff*/
 #include <sys/socket.h> /*communication is the staple of a stable relationship*/
-#include "neighlist.h"
+
+#include "neighlist.h"  /*implementation of neighbour list*/
 
 /*Struct that represents a given node in the network.
 A node only knows two things: its own unique ID, and which incoming edges it
@@ -29,7 +30,7 @@ they have, and their local log file.*/
 struct node *init_node(int32_t id, uint16_t *edges, uint16_t *socks, uint8_t num,
               FILE *globallog);
 
-void test_node(struct node *node);
+void run_node(struct node *node, void (*algo) (struct node *node));
 
 /*Essentially terminates a node's existence, freeing its memory, closing its
 file descriptors, etc. Technically we don't need to do this, because once all
