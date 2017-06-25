@@ -1,4 +1,3 @@
-#include "node.h"
 #include "main.h"
 
 /*entry point*/
@@ -59,12 +58,14 @@ uint8_t main (int argc, char *argv[]) {
 			/*declare and initialize the node*/
 			struct node *newnode;
 			newnode = init_node(i, edges, sockets, num_nodes, globallog);
+			void (*fun) (struct node *node);
+			fun = &ghs; 
 
 			/*Run whatever algorithm here. At this point, the nodes should be agnostic
 			to any global information from the parent process, such as the edge/socket
 			map, and should only rely on information that is self-contained to their
 			own initialized structure*/
-			test_node(newnode);
+			run_node(newnode);
 
 			/*free the node's memory in the child process*/
 			free_node(newnode);

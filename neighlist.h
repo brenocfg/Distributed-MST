@@ -1,3 +1,6 @@
+#ifndef NEIGHLIST_H
+#define NEIGHLIST_H
+
 #include <stdio.h>	//for printing debug info
 #include <stdlib.h>	//mallocs, frees and whatnot
 #include <stdint.h>	//portable size types (uint8_t, uint32_t, etc)
@@ -32,3 +35,5 @@ struct neighbours *init_neighs();
 /*Frees the memory allocated for a neighbours list, removing it from existence
 :(*/
 void free_neighs(struct neighbours *neighs);
+
+#endif /* NEIGHLIST_H */

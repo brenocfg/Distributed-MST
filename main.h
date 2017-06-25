@@ -1,3 +1,6 @@
+#ifndef MAIN_H
+#define MAIN_H
+
 #include <unistd.h>     /*forking is fun, bombing is not*/
 #include <time.h>       /*rand seeds and timestamps*/
 #include <stdint.h>     /*standard types are pretty*/
@@ -5,6 +8,9 @@
 #include <stdlib.h>     /*because the heap wants to be used and abused*/
 #include <sys/socket.h> /*UNIX sockets yay*/
 #include <sys/wait.h>
+
+#include "node.h"       /*implementation of a distributed node*/
+#include "algorithm.h"  /*algorithm to be run (GHS in this case)*/
 
 /*computes a connectivity matrix, where edges[i][j] being positive will
 correspond to nodes i and j being neighbours, and the value of the cell itself
@@ -33,3 +39,5 @@ uint16_t *init_sockets(uint16_t *edges, uint8_t num_nodes);
 
 /*prints adjacency matrix and socket map to given stream, for debug purposes*/
 void print_network(uint16_t *edges, uint16_t *socks, uint8_t num, FILE *stream);
+
+#endif /* MAIN_H */

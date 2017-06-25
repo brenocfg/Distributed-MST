@@ -42,30 +42,10 @@ struct node *init_node(int32_t id, uint16_t *edges, uint16_t *socks, uint8_t num
   return newnode;
 }
 
-void test_node(struct node *node) {
-  uint8_t recvmsg[50];
-  uint8_t sendmsg[50];
-  memset(sendmsg, 0, 50);
-  snprintf(sendmsg, 50, "Hi, I'm node %d!\n", node->id);
-
+void run_node(struct node *node, void(*algo) (struct node *node)) {
   fprintf(node->log, "Beginning test for node %d!\n", node->id);
 
-  print_edges(node->neighs, node->log);
-
-  uint8_t i;
-  struct edge *link = node->neighs->head;
-  for (i = 0; i < node->neighs->num; i++) {
-    send(link->sock, sendmsg, strlen(sendmsg), 0);
-    link = link->next;
-  }
-
-  link = node->neighs->head;
-  for (i = 0; i < node->neighs->num; i++) {
-    memset(recvmsg, 0, 50);
-    recv(link->sock, recvmsg, 50, 0);
-    fprintf(node->log, "%s", recvmsg);
-    link = link->next;
-  }
+  algo(node);
 
   fprintf(node->log, "Ended test for node %d!\n", node->id);
 }

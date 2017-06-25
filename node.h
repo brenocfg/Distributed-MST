@@ -1,3 +1,6 @@
+#ifndef NODE_H
+#define NODE_H
+
 #include <stdio.h>      /*debugging is nice*/
 #include <string.h>     /*memset is king*/
 #include <time.h>       /*timestamps*/
@@ -33,3 +36,5 @@ file descriptors, etc. Technically we don't need to do this, because once all
 child processes that run the nodes finish executing they will be deallocated
 automatically anyway, but we do this manually to stop Valgrind being a nag*/
 void free_node(struct node *node);
+
+#endif /* NODE_H */
