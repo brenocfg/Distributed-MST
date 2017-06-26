@@ -110,7 +110,9 @@ uint16_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
 			if (weight && !weights[weight]) {
 				int fd_pair[2];
 
-				if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd_pair) == -1) {
+				/*we use SEQPACKET sockets, which are a nifty mix of datagram
+				sockets with reliable connection-oriented communication*/
+				if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd_pair) == -1) {
 					fprintf(stderr, "Error when creating socket pair!\n");
 					return NULL;
 				}

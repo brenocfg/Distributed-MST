@@ -11,7 +11,7 @@ edges. We also keep track of the socket that the node must use to communicate
 through that channel.*/
 struct edge {
 	uint32_t weight;
-  uint32_t sock;
+  	uint32_t sock;
 	struct edge *next;
 };
 
