@@ -16,7 +16,7 @@ uint32_t dequeue(struct msgqueue *queue, uint8_t *buffer) {
 
   /*copy message content to buffer*/
   uint32_t len = aux->len;
-  strncpy(buffer, aux->str, len);
+  memcpy(buffer, aux->str, len);
 
   /*free the message's string pointer then the struct pointer itself*/
   free(aux->str);
@@ -37,7 +37,7 @@ void enqueue(struct msgqueue *queue, uint8_t *str, uint32_t len) {
   newstr = (uint8_t *) malloc(len*sizeof(uint8_t));
 
   /*copy over string content to the newly allocated msg*/
-  strncpy(newstr, str, len);
+  memcpy(newstr, str, len);
   newmsg->str = newstr;
   newmsg->len = len;
   newmsg->next = NULL;

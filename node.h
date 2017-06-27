@@ -42,6 +42,7 @@ queue where they need to insert the incoming messages*/
 struct thread_data {
   struct msgqueue *queue;
   uint32_t sock;
+  FILE *log;
 };
 
 /*Initializes the structure to represent a node. At this point we compute all

@@ -52,6 +52,8 @@ int main (int argc, char *argv[]) {
 	fflush(globallog);
 	setbuf(globallog, NULL);
 
+	print_network(edges, sockets, num_nodes, globallog);
+
 	/*spawn child processes for each node, and let them run*/
 	int32_t i, pid;
 	for (i = 0; i < num_nodes; i++) {
@@ -229,8 +231,10 @@ uint16_t *compute_sparse_connectivity(uint8_t num_nodes) {
 	return edges;
 }
 
-void print_network(uint16_t *edges, uint16_t *socks, uint8_t num, FILE *stream){
+void print_network(uint16_t *edges, uint32_t *socks, uint8_t num, FILE *stream){
 	int16_t i, j;
+
+	fprintf(stream, "--------------- DEBUG: Network Topology ---------------\n");
 	for (i = 0; i < num; i++) {
 		for (j = 0; j < num; j++) {
 			fprintf(stream, "%d\t", edges[i*num + j]);
@@ -239,6 +243,7 @@ void print_network(uint16_t *edges, uint16_t *socks, uint8_t num, FILE *stream){
 	}
 	fprintf(stream, "\n\n");
 
+	fprintf(stream, "--------------- DEBUG: Socket Pairs Map ---------------\n");
 	for (i = 0; i < num; i++) {
 		for (j = 0; j < num; j++) {
 			fprintf(stream, "%d\t", socks[i*num + j]);

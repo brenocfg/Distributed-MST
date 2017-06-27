@@ -61,6 +61,7 @@ void run_node(struct node *node, void(*algo) (struct node *node)) {
   for (i = 0; i < num_neighs; i++) {
     tdata[i].sock = aux->sock;
     tdata[i].queue = node->queue;
+    tdata[i].log = node->log;
     pthread_create(&tids[i],NULL,receiver_thread,(void*)&tdata[i]);
     snprintf(logmsg, 60, "Node %d now has thread %li receiving on fd %d",
                                               node->id, tids[i], tdata[i].sock);
@@ -107,7 +108,7 @@ void log_msg(uint8_t *msg, FILE *logfile) {
   snprintf(timestamp, 40, "%s.%03d", hms, ms);
 
   /*print given log message with the appropriate timestamp*/
-  fprintf(logfile, "[%s] %s.\n", timestamp, msg);
+  fprintf(logfile, "[%s] %s\n", timestamp, msg);
 }
 
 void free_node(struct node *node) {
@@ -129,10 +130,11 @@ void *receiver_thread(void *thread_data) {
   /*retrieve thread data and initialize structures*/
   struct thread_data *data = (struct thread_data *) thread_data;
   struct msgqueue *queue = data->queue;
+  FILE *logfile = data->log;
   uint32_t sock = data->sock;
 
-  /*message buffer*/
-  uint8_t msg[50];
+  /*message buffers*/
+  uint8_t msg[50], logmsg[50];
   uint32_t len;
 
   /*receive messages indefinitely, and insert them in the node's queue*/

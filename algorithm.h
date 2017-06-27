@@ -12,6 +12,14 @@ sent to it through a function pointer.*/
 #include "node.h"       /*can't run an algorithm without some guinea pigs*/
 #include "neighlist.h"  /*the guinea pigs need to know the other guinea pigs*/
 
+/*Entry point for the GHS algorithm. Initializes algorithm specific information
+(such as edge statuses and whatnot), performs the level 0 behaviour, and runs
+the main loop that reacts to messages received*/
 void ghs(struct node *node);
+
+/*Processes an incoming CONNECT message, reacting appropriately depending on
+the incoming node's level, ID and whatnot*/
+void process_connect(struct node *node, uint8_t *edge_status, uint8_t *level,
+                                                                  uint8_t *msg);
 
 #endif /* ALGORITHM_H */

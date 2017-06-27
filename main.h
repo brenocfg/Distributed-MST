@@ -11,7 +11,7 @@ topology, then launching the processes that represent each node.*/
 #include <stdio.h>      /*what's computing without some input?*/
 #include <stdlib.h>     /*because the heap wants to be used and abused*/
 #include <sys/socket.h> /*UNIX sockets yay*/
-#include <sys/wait.h>
+#include <sys/wait.h>   /*because forks require patience*/
 
 #include "node.h"       /*implementation of a distributed node*/
 #include "algorithm.h"  /*algorithm to be run (GHS in this case)*/
@@ -39,6 +39,6 @@ never be too large anyway, so we're ok with it*/
 uint32_t *init_sockets(uint16_t *edges, uint8_t num_nodes);
 
 /*prints adjacency matrix and socket map to given stream, for debug purposes*/
-void print_network(uint16_t *edges, uint16_t *socks, uint8_t num, FILE *stream);
+void print_network(uint16_t *edges, uint32_t *socks, uint8_t num, FILE *stream);
 
 #endif /* MAIN_H */
