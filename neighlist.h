@@ -1,6 +1,11 @@
 #ifndef NEIGHLIST_H
 #define NEIGHLIST_H
 
+/*This file implements the list of neighbours for any given node. A list of
+neighbours is a simple linked list of edges, where each edge represents a
+communication link between the node and one of its neighbours. Each edge keeps
+track of its own weight, as well as the socket used to communicate through it*/
+
 #include <stdio.h>	//for printing debug info
 #include <stdlib.h>	//mallocs, frees and whatnot
 #include <stdint.h>	//portable size types (uint8_t, uint32_t, etc)
@@ -11,7 +16,7 @@ edges. We also keep track of the socket that the node must use to communicate
 through that channel.*/
 struct edge {
 	uint32_t weight;
-  	uint32_t sock;
+	uint32_t sock;
 	struct edge *next;
 };
 

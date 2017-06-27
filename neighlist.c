@@ -40,8 +40,8 @@ void print_edges(struct neighbours *neighs, FILE *stream) {
 struct neighbours *init_neighs() {
 	struct neighbours *newneighs;
 
+	/*allocate memory and initialize null/0 values*/
 	newneighs = (struct neighbours*) malloc(sizeof(struct neighbours));
-
 	newneighs->num = 0;
 	newneighs->head = NULL;
 
@@ -51,6 +51,7 @@ struct neighbours *init_neighs() {
 void free_neighs(struct neighbours *neighs) {
 	struct edge *aux;
 
+	/*iterate over list, freeing each member*/
 	aux = neighs->head;
 	while(aux != NULL) {
 		aux = aux->next;
@@ -58,5 +59,6 @@ void free_neighs(struct neighbours *neighs) {
 		neighs->head = aux;
 	}
 
+	/*then free the base pointer itself*/
 	free(neighs);
 }

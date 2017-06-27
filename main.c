@@ -40,7 +40,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	/*initialize socket pairs for each edge*/
-	uint16_t *sockets;
+	uint32_t *sockets;
 	sockets = init_sockets(edges, num_nodes);
 	if (sockets == NULL) {
 		return 0;
@@ -60,6 +60,8 @@ int main (int argc, char *argv[]) {
 			/*declare and initialize the node*/
 			struct node *newnode;
 			newnode = init_node(i, edges, sockets, num_nodes, globallog);
+
+			/*declare and initialize function pointer*/
 			void (*fun) (struct node *node);
 			fun = &ghs;
 
@@ -94,12 +96,13 @@ int main (int argc, char *argv[]) {
 }
 
 
-uint16_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
-	uint16_t *weights, *sockets;
+uint32_t *init_sockets(uint16_t *edges, uint8_t num_nodes) {
+	uint16_t *weights;
+	uint32_t *sockets;
 
 	/*weights for unique edges, sockets is our socket map*/
 	weights = calloc(num_nodes*num_nodes, sizeof(uint16_t));
-	sockets = calloc(num_nodes*num_nodes, sizeof(uint16_t));
+	sockets = calloc(num_nodes*num_nodes, sizeof(uint32_t));
 
 	/*compute socket pairs for each edge*/
 	int16_t i, j;
