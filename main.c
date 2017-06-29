@@ -63,7 +63,8 @@ int main (int argc, char *argv[]) {
 			struct node *newnode;
 			newnode = init_node(i, edges, sockets, num_nodes, globallog);
 
-			/*declare and initialize function pointer*/
+			/*declare and initialize function pointer, in this case we'll run function
+			ghs for each node, which is the GHS algorithm implementation*/
 			void (*fun) (struct node *node);
 			fun = &ghs;
 
@@ -150,8 +151,8 @@ uint16_t *compute_dense_connectivity(uint8_t num_nodes) {
 	srand(time(NULL));
 	while(num_edges < goal) {
 		/*randomize nodes*/
-		uint16_t v1 = rand()%num_nodes;
-		uint16_t v2 = rand()%num_nodes;
+		uint8_t v1 = rand()%num_nodes;
+		uint8_t v2 = rand()%num_nodes;
 
 		/*can't have self edges or repeat ones*/
 		if (v1 == v2 || edges[v1*num_nodes + v2]) {
@@ -161,7 +162,7 @@ uint16_t *compute_dense_connectivity(uint8_t num_nodes) {
 		/*get a valid, unique weight*/
 		int16_t weight = -1;
 		while (weight < 1) {
-			weight = (rand()%((num_nodes)*(num_nodes-1)))+1;
+			weight = (rand()%((num_nodes)*(num_nodes)));
 			weight = (weights[weight]) ? -1 : weight;
 		}
 
@@ -191,7 +192,7 @@ uint16_t *compute_sparse_connectivity(uint8_t num_nodes) {
 	for (i = 0; i < num_nodes-1; i++) {
 		int16_t weight = -1;
 		while (weight < 1) {
-			weight = (rand()%((num_nodes)*(num_nodes-1)))+1;
+			weight = (rand()%((num_nodes)*(num_nodes)));
 			weight = (weights[weight]) ? -1 : weight;
 		}
 
@@ -205,8 +206,8 @@ uint16_t *compute_sparse_connectivity(uint8_t num_nodes) {
 	uint16_t goal = num_edges + (rand()%(num_nodes)+5);
 	while(num_edges < goal) {
 		/*randomize nodes*/
-		uint16_t v1 = rand()%num_nodes;
-		uint16_t v2 = rand()%num_nodes;
+		uint8_t v1 = rand()%num_nodes;
+		uint8_t v2 = rand()%num_nodes;
 
 		/*can't have self edges or repeat ones*/
 		if (v1 == v2 || edges[v1*num_nodes + v2]) {
@@ -216,7 +217,7 @@ uint16_t *compute_sparse_connectivity(uint8_t num_nodes) {
 		/*get a valid, unique weight*/
 		int16_t weight = -1;
 		while (weight < 1) {
-			weight = (rand()%((num_nodes)*(num_nodes-1)))+1;
+			weight = (rand()%((num_nodes)*(num_nodes)));
 			weight = (weights[weight]) ? -1 : weight;
 		}
 

@@ -14,8 +14,7 @@ struct node *init_node(int32_t id, uint16_t *edges, uint32_t *socks, uint8_t num
   newnode->queue = init_queue();
 
   /*log beginning of execution*/
-  sleep(id);
-  snprintf(logmsg, 50, "Node %d has begun executing!", id);
+  snprintf((char*)logmsg, 50, "Node %d has begun executing!", id);
   log_msg(logmsg, globallog);
 
   /*allocate and initialize edge list, with proper weight/socket pairs*/
@@ -31,8 +30,7 @@ struct node *init_node(int32_t id, uint16_t *edges, uint32_t *socks, uint8_t num
   }
 
   /*log edge initialization*/
-  sleep(id);
-  snprintf(logmsg, 50, "Node %d has finished computing edges!", id);
+  snprintf((char*)logmsg, 50, "Node %d has finished computing edges!", id);
   log_msg(logmsg, globallog);
 
   /*initialize local log file, named after the node's ID*/
@@ -53,7 +51,8 @@ void run_node(struct node *node, void(*algo) (struct node *node)) {
   uint8_t logmsg[60];
 
   /*log beginning of node execution*/
-  snprintf(logmsg, 50, "Node %d is beginning algorithm execution!", node->id);
+  snprintf((char*)logmsg, 50, "Node %d is beginning algorithm execution!",
+                                                                      node->id);
   log_msg(logmsg, node->log);
 
   /*start message-receiving threads for each of the node's sockets*/
@@ -61,9 +60,8 @@ void run_node(struct node *node, void(*algo) (struct node *node)) {
   for (i = 0; i < num_neighs; i++) {
     tdata[i].sock = aux->sock;
     tdata[i].queue = node->queue;
-    tdata[i].log = node->log;
     pthread_create(&tids[i],NULL,receiver_thread,(void*)&tdata[i]);
-    snprintf(logmsg, 60, "Node %d now has thread %li receiving on fd %d",
+    snprintf((char*)logmsg, 60, "Node %d now has thread %li receiving on fd %d",
                                               node->id, tids[i], tdata[i].sock);
     log_msg(logmsg, node->log);
     aux = aux->next;
@@ -73,7 +71,8 @@ void run_node(struct node *node, void(*algo) (struct node *node)) {
   algo(node);
 
   /*log node's execution finish*/
-  snprintf(logmsg, 50, "Node %d has finished algorithm execution!", node->id);
+  snprintf((char*)logmsg, 50, "Node %d has finished algorithm execution!",
+                                                                      node->id);
   log_msg(logmsg, node->log);
 
   /*terminate all of the node's receiving threads (we can't simply join them
@@ -104,8 +103,8 @@ void log_msg(uint8_t *msg, FILE *logfile) {
   tm_info = localtime(&tv.tv_sec);
 
   /*concatenate localtime + milliseconds to final timestamp*/
-  strftime(hms, 50, "%H:%M:%S", tm_info);
-  snprintf(timestamp, 40, "%s.%03d", hms, ms);
+  strftime((char*)hms, 50, "%H:%M:%S", tm_info);
+  snprintf((char*)timestamp, 40, "%s.%03d", hms, ms);
 
   /*print given log message with the appropriate timestamp*/
   fprintf(logfile, "[%s] %s\n", timestamp, msg);
@@ -115,8 +114,8 @@ void free_node(struct node *node) {
   uint8_t logmsg[50];
 
   /*log the node's inevitable demise*/
-  snprintf(logmsg, 50, "Node %d says so long, and thanks for all the fish!",
-                                                                      node->id);
+  snprintf((char*) logmsg, 50,
+                "Node %d says so long, and thanks for all the fish!", node->id);
   log_msg(logmsg, node->globallog);
 
   /*close its fds and free its memory*/
@@ -126,15 +125,14 @@ void free_node(struct node *node) {
   free(node);
 }
 
-void *receiver_thread(void *thread_data) {
+  void *receiver_thread(void *thread_data) {
   /*retrieve thread data and initialize structures*/
   struct thread_data *data = (struct thread_data *) thread_data;
   struct msgqueue *queue = data->queue;
-  FILE *logfile = data->log;
   uint32_t sock = data->sock;
 
   /*message buffers*/
-  uint8_t msg[50], logmsg[50];
+  uint8_t msg[50];
   uint32_t len;
 
   /*receive messages indefinitely, and insert them in the node's queue*/

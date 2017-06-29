@@ -21,5 +21,9 @@ void ghs(struct node *node);
 the incoming node's level, ID and whatnot*/
 void process_connect(struct node *node, uint8_t *edge_status, uint8_t *level,
                                                                   uint8_t *msg);
+                                                                  
+/*Performs each node's level 0 'wakeup' behaviour, where they find their lowest
+weight edge, and send a CONNECT message through that edge*/
+void wakeup(struct node *node, uint8_t *edge_status, uint8_t *level);
 
 #endif /* ALGORITHM_H */
