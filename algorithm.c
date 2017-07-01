@@ -1,26 +1,5 @@
 #include "algorithm.h"
 
-enum EDGE_STATUS {
-  EDGE_REJECT = -1,
-  EDGE_UNKNOWN,
-  EDGE_BRANCH
-};
-
-enum MSG_TYPES {
-  MSG_CONNECT = 0,
-  MSG_INITIATE,
-  MSG_TEST,
-  MSG_ACCEPT,
-  MSG_REJECT,
-  MSG_CHGROOT,
-  MSG_REPORT
-};
-
-enum NODE_STATES {
-  NODE_FIND = 0,
-  NODE_FOUND
-};
-
 void ghs (struct node *node) {
   uint8_t inmsg[50];
   struct node_data node_data;
@@ -67,12 +46,184 @@ void ghs (struct node *node) {
         process_initiate(node, &node_data, i, inmsg);
         break;
       }
+      case MSG_TEST: {
+        process_test(node, &node_data, i, sock, inmsg);
+        break;
+      }
       default: {
-        fprintf(stderr, "Invalid message type!\n");
+        fprintf(stderr, "Invalid message type at arrival! Info:\n");
+        fprintf(stderr, "Node: %d, msg_type: %d, weight: %d", node->id, msg_type, link->weight);
         break;
       }
     }
   }
+}
+
+void process_connect(struct node *node, struct node_data *ndata,
+                        uint8_t edge_index, uint8_t edge_sock, uint8_t *msg) {
+
+  uint8_t inlevel, outmsg[50];
+  char logmsg[60];
+  uint16_t inweight;
+
+  /*retrieve message data*/
+  inlevel = msg[3];
+  inweight = (msg[1] << 8) | msg[2];
+
+  snprintf(logmsg, 60, "Received CONNECT msg, lvl: %d, weight: %d",
+                                                            inlevel, inweight);
+  log_msg(logmsg, node->log);
+
+  /*received connect from lower level, sender node's fragment can be absorbed*/
+  if (inlevel < ndata->level) {
+    /*mark edge as part of MST*/
+    ndata->edge_status[edge_index] = EDGE_BRANCH;
+
+    /*send INITIATE message and log it*/
+    uint8_t len;
+    len=create_msg(MSG_INITIATE,inweight,0,ndata->frag_id,ndata->state,outmsg);
+    send(edge_sock, outmsg, len, 0);
+    snprintf(logmsg, 60, "Sending INITIATE message to absorbable fragment!");
+    log_msg(logmsg, node->log);
+
+    /*if we were in a discovering state, this node must report to us*/
+    if (ndata->state == NODE_FIND) {
+      ndata->fcount += 1;
+    }
+  }
+
+  /*if level is same or above and edge isn't classified, we delay the response*/
+  else if (ndata->edge_status[edge_index] == EDGE_UNKNOWN) {
+    snprintf(logmsg, 60, "Cannot respond yet, delaying response!");
+    log_msg(logmsg, node->log);
+    /*place message at end of queue, CONNECT messages always have len 4*/
+    enqueue(node->queue, msg, 4);
+  }
+
+  /*only case left is a merge, so we send the INITIATE message with next level*/
+  else {
+    uint8_t len;
+    len = create_msg(MSG_INITIATE, inweight, (ndata->level)+1, inweight,
+                                                            NODE_FIND, outmsg);
+    send(edge_sock, outmsg, len, 0);
+    snprintf(logmsg, 60, "Sending INITIATE message to ADVANCE LEVEL!");
+    log_msg(logmsg, node->log);
+  }
+}
+
+void process_initiate(struct node *node, struct node_data *ndata,
+                                            uint8_t edge_index, uint8_t *msg) {
+  uint8_t inlevel, instate, outmsg[50];
+  uint16_t inweight, infrag;
+  char logmsg[60];
+
+  /*retrieve message data*/
+  inlevel = msg[3];
+  instate = msg[4];
+  inweight = (msg[1] << 8) | msg[2];
+  infrag = (msg[5] << 8) | msg[6];
+
+  /*log message arrival and its parameters*/
+  snprintf(logmsg, 60, "Received INITIATE message. Lvl: %d, F: %d, St: %d",
+                                                    inlevel, infrag, instate);
+  log_msg(logmsg, node->log);
+
+  /*node is advancing level, update node data to match new level and fragment*/
+  ndata->level = inlevel;
+  ndata->frag_id = inweight;
+  ndata->state = instate;
+  ndata->edge_status[edge_index] = EDGE_BRANCH;
+  ndata->in_branch = edge_index;
+  ndata->best_edge = -1;
+  ndata->best_weight = ~0;
+
+  /*log level advancement in the global log*/
+  snprintf(logmsg, 60, "Node %d is ADVANCING to level %d in fragment %d!",
+                                        node->id, ndata->level, ndata->frag_id);
+    log_msg(logmsg, node->globallog);
+
+  /*now for each MST neighbour (edge is BRANCH), who isn't the node who just
+  sent us the INITIATE message, we propagate the new fragment's INITIATE*/
+  uint16_t i;
+  struct edge *link = node->neighs->head;
+  for (i = 0; i < ndata->num_neighs; i++, link = link->next) {
+    if (i == edge_index || ndata->edge_status[i] != EDGE_BRANCH) {
+      continue;
+    }
+
+    uint8_t len;
+    len=create_msg(MSG_INITIATE,link->weight,inlevel,NODE_FIND,inweight,outmsg);
+
+    /*propagate INITIATE forward, and log*/
+    send(link->sock, outmsg, len, 0);
+    snprintf(logmsg, 60, "Propagating INITIATE message on edge with weight %d",
+                                                                  link->weight);
+    log_msg(logmsg, node->log);
+
+    /*if we were in the discovery state, this node must report to us later*/
+    if (ndata->state == NODE_FIND) {
+      ndata->fcount += 1;
+    }
+  }
+
+  /*if in discovery state, begin testing edges*/
+  if (ndata->state == NODE_FIND) {
+    test(node, ndata);
+  }
+}
+
+void process_test(struct node *node, struct node_data *ndata,uint8_t edge_index,
+                                            uint8_t edge_sock, uint8_t *msg) {
+    char logmsg[60];
+    uint16_t inweight, infrag;
+    uint8_t inlevel;
+
+    /*retrieve message data*/
+    inweight = (msg[1] << 8) | msg[2];
+    inlevel = msg[3];
+    infrag = (msg[4] << 8) | msg[5];
+
+    /*log message arrival*/
+    snprintf(logmsg, 60, "Received TEST msg. W: %d, L: %d, F: %d", inweight,
+                                                            inlevel, infrag);
+    log_msg(logmsg, node->log);
+
+    /*If sender is at higher level, we don't know if we are in the same fragment
+    or not yet, so delay response*/
+    if (inlevel > ndata->level) {
+        snprintf(logmsg, 60, "Sender has higher level, delaying response!");
+        log_msg(logmsg, node->log);
+        /*place message at the end of the queue, TEST messages have length 6*/
+        enqueue(node->queue, msg, 6);
+    }
+
+    /*Sender is outside our fragment and lower/equal level, send ACCEPT*/
+    else if (infrag != ndata->frag_id) {
+        snprintf(logmsg, 60, "Sending ACCEPT msg on edge with weight %d",
+                                                                    inweight);
+        log_msg(logmsg, node->log);
+        //create_msg(MSG_ACCEPT);
+        //send(edge_sock);
+    }
+
+    /*Only other possibility is an invalid edge (leads to same fragment), so we
+    reject it. If it's our current test edge we leave it to the test procedure,
+    otherwise we need to send the REJECT response to the sender node.*/
+    else {
+        /*REJECT edge*/
+        if (ndata->edge_status[edge_index] == EDGE_UNKNOWN) {
+            ndata->edge_status[edge_index] = EDGE_REJECT;
+        }
+
+        if (ndata->test_edge != edge_index) {
+            //create_msg(MSG_REJECT);
+            //send(edge_sock);
+        }
+
+        else {
+            test(node, ndata);
+        }
+    }
 }
 
 void wakeup(struct node *node, struct node_data *data) {
@@ -100,7 +251,7 @@ void wakeup(struct node *node, struct node_data *data) {
 
   /*send lowest edge neighbour a CONNECT message*/
   uint8_t msg_len;
-  msg_len = create_message(MSG_CONNECT, lowest->weight, data->level, 0, outmsg);
+  msg_len = create_msg(MSG_CONNECT, lowest->weight, data->level, 0, 0, outmsg);
   send(lowest->sock, outmsg, msg_len, 0);
 
   /*and log the send event*/
@@ -109,114 +260,49 @@ void wakeup(struct node *node, struct node_data *data) {
   log_msg(logmsg, node->log);
 }
 
-void process_connect(struct node *node, struct node_data *ndata,
-                        uint8_t edge_index, uint8_t edge_sock, uint8_t *msg) {
+void test(struct node *node, struct node_data *ndata) {
+    char logmsg[60];
+    uint8_t outmsg[50];
 
-  uint8_t inlevel, outmsg[50];
-  char logmsg[60];
-  uint16_t inweight;
-
-  /*retrieve message data*/
-  inlevel = msg[3];
-  inweight = (msg[1] << 8) | msg[2];
-
-  snprintf(logmsg, 60, "Received CONNECT msg, lvl: %d, weight: %d",
-                                                            inlevel, inweight);
-  log_msg(logmsg, node->log);
-
-  /*received connect from lower level, sender node's fragment can be absorbed*/
-  if (inlevel < ndata->level) {
-    /*mark edge as part of MST*/
-    ndata->edge_status[edge_index] = EDGE_BRANCH;
-
-    /*send INITIATE message and log it*/
-    uint8_t msg_len;
-    msg_len = create_message(MSG_INITIATE, inweight, 0, ndata->state, outmsg);
-    send(edge_sock, outmsg, msg_len, 0);
-    snprintf(logmsg, 60, "Sending INITIATE message to absorbable fragment!");
+    snprintf(logmsg, 60, "Running TEST procedure to find LWOE!");
     log_msg(logmsg, node->log);
 
-    /*if we were in a discovering state count the node as reported*/
-    if (ndata->state == NODE_FIND) {
-      ndata->fcount += 1;
+    /*Iterate over the node's edges, storing the lowest weight edge that hasn't
+    been classified as REJECT or BRANCH*/
+    ndata->test_edge = -1;
+    uint16_t i, edge_weight;
+    uint32_t sock;
+    struct edge *link = node->neighs->head;
+    for (i = 0; i < ndata->num_neighs; i++, link = link->next) {
+        if (ndata->edge_status[i] == EDGE_UNKNOWN) {
+            ndata->test_edge = i;
+            edge_weight = link->weight;
+            sock = link->sock;
+            break;
+        }
     }
-  }
 
-  /*if level is same or above and edge isn't classified, we delay the response*/
-  else if (ndata->edge_status[edge_index] == EDGE_UNKNOWN) {
-    /*place message at end of queue, CONNECT messages always have len 4*/
-    enqueue(node->queue, msg, 4);
-  }
+    /*Found a candidate edge, send test message across it.*/
+    if (ndata->test_edge) {
+        uint8_t len;
+        len = create_msg(MSG_TEST, edge_weight, ndata->level, ndata->frag_id,
+                                                                    0,outmsg);
+        send(sock, outmsg, len, 0);
+        snprintf(logmsg, 60, "Sending TEST message on edge with weight %d",
+                                                                edge_weight);
+        log_msg(logmsg, node->log);
+    }
 
-  /*only case left is a merge, so we send the INITIATE message with next level*/
-  else {
-    uint8_t len;
-    len=create_message(MSG_INITIATE,inweight,(ndata->level)+1,NODE_FIND,outmsg);
-    send(edge_sock, outmsg, len, 0);
-    snprintf(logmsg, 60, "Sending INITIATE message to ADVANCE LEVEL!");
-    log_msg(logmsg, node->log);
-  }
+    /*No candidate edge was found, report back to 'parent'*/
+    else {
+        snprintf(logmsg, 60, "No candidate edge, reporting!");
+        log_msg(logmsg, node->log);
+        //report();
+    }
 }
 
-void process_initiate(struct node *node, struct node_data *ndata,
-                                            uint8_t edge_index, uint8_t *msg) {
-  uint8_t inlevel, instate, outmsg[50];
-  uint16_t inweight;
-  char logmsg[60];
-
-  /*retrieve message data*/
-  inlevel = msg[3];
-  instate = msg[4];
-  inweight = (msg[1] << 8) | msg[2];
-
-  /*log message arrival and its parameters*/
-  snprintf(logmsg, 60, "Received INITIATE message. Lvl: %d, W: %d, St: %d",
-                                                    inlevel, inweight, instate);
-  log_msg(logmsg, node->log);
-
-  /*node is advancing level, update node data to match new level and fragment*/
-  ndata->level = inlevel;
-  ndata->frag_id = inweight;
-  ndata->state = instate;
-  ndata->edge_status[edge_index] = EDGE_BRANCH;
-  ndata->in_branch = edge_index;
-  ndata->best_edge = -1;
-  ndata->best_weight = ~0;
-
-  /*all neighbouring fragment nodes will receive the same INITIATE message, so
-  we create it beforehand*/
-  uint8_t len;
-  len = create_message(MSG_INITIATE, inweight, inlevel, NODE_FIND, outmsg);
-
-  /*now for each MST neighbour (edge is BRANCH), who isn't the node who just
-  sent us the INITIATE message, we propagate the new fragment's INITIATE*/
-  uint8_t i;
-  struct edge *link = node->neighs->head;
-  for (i = 0; i < ndata->num_neighs; i++, link = link->next) {
-    if (i == edge_index || ndata->edge_status[i] != EDGE_BRANCH) {
-      continue;
-    }
-
-    /*propagate INITIATE forward, and log*/
-    send(link->sock, outmsg, len, 0);
-    snprintf(logmsg, 60, "Propagating INITIATE message on edge with weight %d",
-                                                                  link->weight);
-    log_msg(logmsg, node->log);
-
-    /*if we were in the discovery state, this node must report to us later*/
-    if (ndata->state == NODE_FIND) {
-      ndata->fcount += 1;
-    }
-  }
-
-  /*if in discovery state, begin testing edges*/
-  if (ndata->state == NODE_FIND) {
-    //test(node, ndata);
-  }
-}
-
-uint8_t create_message(uint8_t type, uint16_t weight, uint8_t level,
-                        uint8_t state, uint8_t *buffer) {
+uint8_t create_msg(uint8_t type, uint16_t weight, uint8_t level, uint16_t frag,
+                                            uint8_t state, uint8_t *buffer) {
 
   /*avoid messing with invalid pointers*/
   if (buffer == NULL) {
@@ -240,15 +326,26 @@ uint8_t create_message(uint8_t type, uint16_t weight, uint8_t level,
       msg_len++;
       break;
     }
-    /*INITIATE messages piggyback fragment level and state*/
+    /*INITIATE messages piggyback fragment edge, level and state*/
     case MSG_INITIATE: {
       buffer[3] = level;
       buffer[4] = state;
-      msg_len += 2;
+      buffer[5] = (frag >> 8) & 0xFF;
+      buffer[6] = frag & 0xFF;
+      msg_len += 4;
       break;
     }
+    /*TEST messages piggyback fragment level and edge*/
+    case MSG_TEST: {
+        buffer[3] = level;
+        buffer[4] = (frag >> 8) & 0xFF;
+        buffer[5] = frag & 0xFF;
+        msg_len += 3;
+        break;
+    }
+    /*Unknown message ID, something went very wrong...*/
     default: {
-      fprintf(stderr, "Invalid message type!\n");
+      fprintf(stderr, "Invalid message type at create_msg!\n");
       break;
     }
   }
