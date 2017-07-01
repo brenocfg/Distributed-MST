@@ -81,7 +81,8 @@ void process_connect(struct node *node, struct node_data *ndata,
 
     /*send INITIATE message and log it*/
     uint8_t len;
-    len=create_msg(MSG_INITIATE,inweight,0,ndata->frag_id,ndata->state,outmsg);
+    len= create_msg(MSG_INITIATE, inweight, ndata->level, ndata->frag_id,
+                                                        ndata->state, outmsg);
     send(edge_sock, outmsg, len, 0);
     snprintf(logmsg, 60, "Sending INITIATE message to absorbable fragment!");
     log_msg(logmsg, node->log);
