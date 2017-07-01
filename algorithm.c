@@ -13,6 +13,10 @@ void ghs (struct node *node) {
   while(1) {
     /*nothing to do when there are no messages to process*/
     if (is_empty(node->queue)) {
+      char logmsg[60];
+      snprintf(logmsg, 60, "Empty queue, sleeping!");
+      log_msg(logmsg, node->log);
+      sleep(1);
       continue;
     }
 
@@ -43,11 +47,29 @@ void ghs (struct node *node) {
         break;
       }
       case MSG_INITIATE: {
-        process_initiate(node, &node_data, i, inmsg);
+        process_initiate(node, &node_data, i, sock, inmsg);
         break;
       }
       case MSG_TEST: {
         process_test(node, &node_data, i, sock, inmsg);
+        break;
+      }
+      case MSG_ACCEPT: {
+        process_accept(node, &node_data, i, sock, inmsg);
+        break;
+      }
+      case MSG_REJECT: {
+        process_reject(node, &node_data, i, inmsg);
+        break;
+      }
+      case MSG_REPORT: {
+        if (process_report(node, &node_data, i, sock, inmsg)) {
+            return;
+        }
+        break;
+      }
+      case MSG_CHGROOT: {
+        changeroot(node, &node_data);
         break;
       }
       default: {
@@ -60,7 +82,7 @@ void ghs (struct node *node) {
 }
 
 void process_connect(struct node *node, struct node_data *ndata,
-                        uint8_t edge_index, uint8_t edge_sock, uint8_t *msg) {
+                        uint16_t edge_index, uint32_t edge_sock, uint8_t *msg) {
 
   uint8_t inlevel, outmsg[50];
   char logmsg[60];
@@ -81,7 +103,7 @@ void process_connect(struct node *node, struct node_data *ndata,
 
     /*send INITIATE message and log it*/
     uint8_t len;
-    len= create_msg(MSG_INITIATE, inweight, ndata->level, ndata->frag_id,
+    len = create_msg(MSG_INITIATE, inweight, ndata->level, ndata->frag_id,
                                                         ndata->state, outmsg);
     send(edge_sock, outmsg, len, 0);
     snprintf(logmsg, 60, "Sending INITIATE message to absorbable fragment!");
@@ -113,7 +135,7 @@ void process_connect(struct node *node, struct node_data *ndata,
 }
 
 void process_initiate(struct node *node, struct node_data *ndata,
-                                            uint8_t edge_index, uint8_t *msg) {
+                        uint16_t edge_index, uint32_t edge_sock, uint8_t *msg) {
   uint8_t inlevel, instate, outmsg[50];
   uint16_t inweight, infrag;
   char logmsg[60];
@@ -131,10 +153,11 @@ void process_initiate(struct node *node, struct node_data *ndata,
 
   /*node is advancing level, update node data to match new level and fragment*/
   ndata->level = inlevel;
-  ndata->frag_id = inweight;
+  ndata->frag_id = infrag;
   ndata->state = instate;
   ndata->edge_status[edge_index] = EDGE_BRANCH;
   ndata->in_branch = edge_index;
+  ndata->branch_sock = edge_sock;
   ndata->best_edge = -1;
   ndata->best_weight = ~0;
 
@@ -173,11 +196,11 @@ void process_initiate(struct node *node, struct node_data *ndata,
   }
 }
 
-void process_test(struct node *node, struct node_data *ndata,uint8_t edge_index,
-                                            uint8_t edge_sock, uint8_t *msg) {
+void process_test(struct node *node,struct node_data *ndata,uint16_t edge_index,
+                                            uint32_t edge_sock, uint8_t *msg) {
     char logmsg[60];
     uint16_t inweight, infrag;
-    uint8_t inlevel;
+    uint8_t inlevel, outmsg[50];
 
     /*retrieve message data*/
     inweight = (msg[1] << 8) | msg[2];
@@ -203,13 +226,14 @@ void process_test(struct node *node, struct node_data *ndata,uint8_t edge_index,
         snprintf(logmsg, 60, "Sending ACCEPT msg on edge with weight %d",
                                                                     inweight);
         log_msg(logmsg, node->log);
-        //create_msg(MSG_ACCEPT);
-        //send(edge_sock);
+        uint8_t len = create_msg(MSG_ACCEPT, inweight, 0, 0, 0, outmsg);
+        send(edge_sock, outmsg, len, 0);
     }
 
     /*Only other possibility is an invalid edge (leads to same fragment), so we
-    reject it. If it's our current test edge we leave it to the test procedure,
-    otherwise we need to send the REJECT response to the sender node.*/
+    reject it. If it's our current test edge we've already sent a test message
+    ourselves and will eventually get a REJECT, so we move on to the next edge.
+    If not, we reply with our own REJECT message.*/
     else {
         /*REJECT edge*/
         if (ndata->edge_status[edge_index] == EDGE_UNKNOWN) {
@@ -217,13 +241,138 @@ void process_test(struct node *node, struct node_data *ndata,uint8_t edge_index,
         }
 
         if (ndata->test_edge != edge_index) {
-            //create_msg(MSG_REJECT);
-            //send(edge_sock);
+            snprintf(logmsg, 60, "Sending REJECT msg on tested edge!");
+            log_msg(logmsg, node->log);
+
+            uint8_t len = create_msg(MSG_REJECT, inweight, 0, 0, 0, outmsg);
+            send(edge_sock, outmsg, len, 0);
         }
 
         else {
             test(node, ndata);
         }
+    }
+}
+
+void process_accept(struct node *node, struct node_data *ndata,
+                        uint16_t edge_index, uint32_t edge_sock, uint8_t *msg) {
+    char logmsg[60];
+    uint16_t inweight;
+
+    /*retrieve message data*/
+    inweight = (msg[1] << 8) | msg[2];
+
+    /*log message arrival*/
+    snprintf(logmsg, 60, "Received ACCEPT on edge with weight %d, c: %d", inweight, ndata->fcount);
+    log_msg(logmsg, node->log);
+
+    /*edge was accepeted, we don't need test_edge anymore for this level*/
+    ndata->test_edge = -1;
+
+    /*if new best edge, update it*/
+    if (inweight < ndata->best_weight) {
+        ndata->best_edge = edge_index;
+        ndata->best_weight = inweight;
+        ndata->best_sock = edge_sock;
+    }
+
+    report(node, ndata);
+}
+
+void process_reject(struct node *node, struct node_data *ndata,
+                                            uint16_t edge_index, uint8_t *msg) {
+    char logmsg[60];
+    uint16_t inweight;
+
+    /*retrieve edge weight, for logging*/
+    inweight = (msg[1] << 8) | msg[2];
+
+    /*log message arrival*/
+    snprintf(logmsg, 60, "Received REJECT on edge with weight %d!", inweight);
+    log_msg(logmsg, node->log);
+
+    /*update edge's status to REJECT and begin testing other edges*/
+    ndata->edge_status[edge_index] = EDGE_REJECT;
+    test(node, ndata);
+}
+
+uint8_t process_report(struct node *node, struct node_data *ndata,
+                        uint16_t edge_index, uint32_t edge_sock, uint8_t *msg) {
+    char logmsg[60];
+    uint16_t reported_weight;
+
+    /*retrieve message data*/
+    reported_weight = (msg[1] << 8) | msg[2];
+
+    /*log message arrival*/
+    snprintf(logmsg,60,"Received REPORT msg with LWOE cost %d",reported_weight);
+    log_msg(logmsg, node->log);
+
+    /*it's a regular neighbour reporting to us*/
+    if (edge_index != ndata->in_branch) {
+        ndata->fcount -= 1;
+        /*if new best edge, report back to 'parent' and log it*/
+        if (reported_weight < ndata->best_weight) {
+            snprintf(logmsg,60,"Found new LWOE w/ weight %d!",reported_weight);
+            log_msg(logmsg, node->log);
+
+            ndata->best_weight = reported_weight;
+            ndata->best_edge = edge_index;
+            ndata->best_sock = edge_sock;
+            report(node, ndata);
+        }
+    }
+
+    /*we're still in a different discovery phase, delay response*/
+    else if (ndata->state == NODE_FIND) {
+        snprintf(logmsg, 60, "Delaying response to REPORT message!");
+        log_msg(logmsg, node->log);
+        /*place message back into the end of the queue*/
+        enqueue(node->queue, msg, 3);
+    }
+
+    /*received a weight that is higher than current candidate, means we found
+    LWOE already, and can start changeroot immediately*/
+    else if (reported_weight > ndata->best_weight) {
+        snprintf(logmsg, 60, "Found LWOE, calling CHANGEROOT procedure!");
+        log_msg(logmsg, node->log);
+        //changeroot(node, ndata);
+    }
+
+    /*if incoming edge has 'infinite' weight, the algorithm is done!*/
+    else if (reported_weight == ((uint16_t) ~0)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+void changeroot(struct node *node, struct node_data *ndata) {
+    char logmsg[60];
+    uint8_t outmsg[50];
+
+    snprintf(logmsg, 60, "Beginning CHANGEROOT procedure!");
+    log_msg(logmsg, node->log);
+
+    /*our best edge is already in the MST, so we're not the new root, pass the
+    changeroot message forward*/
+    if (ndata->edge_status[ndata->best_edge] == EDGE_BRANCH) {
+        snprintf(logmsg, 60, "Passing CHGEROOT message forward!");
+        log_msg(logmsg, node->log);
+
+        uint8_t len = create_msg(MSG_CHGROOT, 0, 0, 0, 0, outmsg);
+        send(ndata->best_sock, outmsg, len, 0);
+    }
+
+    /*we are the new ROOT! Send CONNECT to the other fragment*/
+    else {
+        snprintf(logmsg, 60, "Sending CONNECT message with level %d!",
+                                                                ndata->level);
+        log_msg(logmsg, node->log);
+
+        uint8_t len;
+        len=create_msg(MSG_CONNECT,ndata->best_weight,ndata->level,0,0,outmsg);
+        send(ndata->best_sock, outmsg, len, 0);
     }
 }
 
@@ -284,7 +433,7 @@ void test(struct node *node, struct node_data *ndata) {
     }
 
     /*Found a candidate edge, send test message across it.*/
-    if (ndata->test_edge) {
+    if (ndata->test_edge != -1) {
         uint8_t len;
         len = create_msg(MSG_TEST, edge_weight, ndata->level, ndata->frag_id,
                                                                     0,outmsg);
@@ -299,6 +448,22 @@ void test(struct node *node, struct node_data *ndata) {
         snprintf(logmsg, 60, "No candidate edge, reporting!");
         log_msg(logmsg, node->log);
         //report();
+    }
+}
+
+void report(struct node *node, struct node_data *ndata) {
+    char logmsg[60];
+    uint8_t outmsg[50];
+
+    /*We only report if all our neighbours are really done reporting to us.*/
+    if (ndata->fcount == 0 && ndata->test_edge == -1) {
+        /*log beginning of report procedure*/
+        snprintf(logmsg, 60, "Node %d has begun reporting LWOE!", node->id);
+        log_msg(logmsg, node->log);
+
+        /*send report message to 'parent' in the MST*/
+        uint8_t len=create_msg(MSG_REPORT, ndata->best_weight, 0, 0, 0, outmsg);
+        send(ndata->branch_sock, outmsg, len, 0);
     }
 }
 
@@ -342,6 +507,13 @@ uint8_t create_msg(uint8_t type, uint16_t weight, uint8_t level, uint16_t frag,
         buffer[4] = (frag >> 8) & 0xFF;
         buffer[5] = frag & 0xFF;
         msg_len += 3;
+        break;
+    }
+    /*ACCEPT and REJECT messages don't have any additional info.
+    REPORT ones don't either, we just change edge weight to be the best edge's*/
+    case MSG_ACCEPT:
+    case MSG_REJECT:
+    case MSG_REPORT: {
         break;
     }
     /*Unknown message ID, something went very wrong...*/
