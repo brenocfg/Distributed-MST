@@ -1,22 +1,33 @@
 #include "neighlist.h"
 
-/*This file implements the data type that represents the given node's
-neighbourhood, that is, its connections to its adjacent nodes. We model a node's
-neighbours as a simple linked list of edges, with each edge's weight and
-associated socket. We only need an operation for adding edges, since nodes
-cannot lose connectivity.*/
-
 void add_edge(struct neighbours *neighs, uint32_t weight, uint32_t sock) {
-	struct edge *aux;
+	struct edge *aux, *aux2;
 
-	/*we insert new edges at the beginning*/
-	aux = neighs->head;
+	/*in these cases we need to insert at the head*/
+	if (neighs->head == NULL || neighs->head->weight > weight) {
+		aux = neighs->head;
+		neighs->head = (struct edge*) malloc(sizeof(struct edge));
+		neighs->head->weight = weight;
+		neighs->head->sock = sock;
+		neighs->head->next = aux;
+	}
 
-	/*allocate and initialize edge*/
-	neighs->head = (struct edge*) malloc(sizeof(struct edge));
-	neighs->head->weight = weight;
-	neighs->head->sock = sock;
-	neighs->head->next = aux;
+	/*otherwise...*/
+	else {
+		/*find insertion point*/
+		aux = neighs->head;
+		while (aux->next != NULL && aux->next->weight < weight) {
+			aux = aux->next;
+		}
+
+		/*allocate new node and insert it in the proper position*/
+		aux2 = aux;
+		aux = (struct edge*) malloc(sizeof(struct edge));
+		aux->next = aux2->next;
+		aux->weight = weight;
+		aux->sock = sock;
+		aux2->next = aux;
+	}
 
 	/*increment number of neighbours*/
 	neighs->num += 1;

@@ -58,7 +58,7 @@ void run_node(struct node *node, void (*algo) (struct node *node));
 /*Writes the given log message to given log file. The log file will be either
 the node's own local log, or the global distributed log. The log message will
 be appropriately timestamped, down to millisecond precision (hopefully).*/
-void log_msg(uint8_t *msg, FILE *logfile);
+void log_msg(char *msg, FILE *logfile);
 
 /*Essentially terminates a node's existence, freeing its memory, closing its
 file descriptors, etc. Technically we don't need to do this, because once all
