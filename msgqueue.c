@@ -45,12 +45,12 @@ void enqueue(struct msgqueue *queue, uint8_t *str, uint32_t len) {
   pthread_mutex_lock(&queue->mutex);
 
   /*for empty queues we insert in the front*/
-  if (is_empty(queue)) {
+  if (queue->front == NULL) {
     queue->front = newmsg;
   }
 
   /*for queues of size 1 we need to update the front's next pointer*/
-  else if (!is_empty(queue) && queue->back == NULL){
+  else if (queue->back == NULL){
     queue->front->next = newmsg;
     queue->back = newmsg;
   }

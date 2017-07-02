@@ -263,7 +263,7 @@ void process_accept(struct node *node, struct node_data *ndata,
     inweight = (msg[1] << 8) | msg[2];
 
     /*log message arrival*/
-    snprintf(logmsg, 60, "Received ACCEPT on edge with weight %d, c: %d", inweight, ndata->fcount);
+    snprintf(logmsg, 60, "Received ACCEPT on edge with weight %d", inweight);
     log_msg(logmsg, node->log);
 
     /*edge was accepeted, we don't need test_edge anymore for this level*/
