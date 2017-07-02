@@ -6,19 +6,23 @@ uint32_t dequeue(struct msgqueue *queue, uint8_t *buffer) {
   pthread_mutex_lock(&queue->mutex);
 
   /*let's not segfault shall we? do nothing for empty queues or NULL buffers*/
-  if (is_empty(queue) || buffer == NULL) {
+  if (queue->front == NULL || buffer == NULL) {
     return 0;
   }
 
-  /*update front of the queue*/
+  /*update front of the queue, and back if necessary*/
   aux = queue->front;
-  queue->front = aux->next;
+  queue->front = queue->front->next;
+
+  if (queue->front == NULL) {
+    queue->back = NULL;
+  }
 
   /*copy message content to buffer*/
   uint32_t len = aux->len;
   memcpy(buffer, aux->str, len);
 
-  /*free the message's string pointer then the struct pointer itself*/
+  /*free the message's string pointer, then the struct pointer itself*/
   free(aux->str);
   free(aux);
 
@@ -45,20 +49,13 @@ void enqueue(struct msgqueue *queue, uint8_t *str, uint32_t len) {
   pthread_mutex_lock(&queue->mutex);
 
   /*for empty queues we insert in the front*/
-  if (queue->front == NULL) {
-    queue->front = newmsg;
+  if (queue->back == NULL) {
+      queue->front = queue->back = newmsg;
   }
 
-  /*for queues of size 1 we need to update the front's next pointer*/
-  else if (queue->back == NULL){
-    queue->front->next = newmsg;
-    queue->back = newmsg;
-  }
-
-  /*for the general case we only care about the back*/
   else {
-    queue->back->next = newmsg;
-    queue->back = newmsg;
+      queue->back->next = newmsg;
+      queue->back = newmsg;
   }
 
   pthread_mutex_unlock(&queue->mutex);

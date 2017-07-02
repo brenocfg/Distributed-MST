@@ -25,6 +25,7 @@ Here's a brief description of the data we store for each node:
   num_neighs  -> number of neighbours the node has
   edge_status -> array that keeps track of each of the node's edges' status
   in_branch   -> stores the node's parent in the MST
+  branch_wt   -> weight of the 'parent' edge, so neighbour can ID it
   branch_sock -> stores a reference to the in-branch edge's socket
   test_edge   -> the node's current best candidate edge, which is being tested
   best_edge   -> index of the node's edge that leads to best frag edge
@@ -38,6 +39,7 @@ struct node_data {
   uint16_t num_neighs;
   uint8_t *edge_status;
   uint8_t in_branch;
+  uint16_t branch_wt;
   uint32_t branch_sock;
   int16_t test_edge;
   int16_t best_edge;
