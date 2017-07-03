@@ -72,4 +72,8 @@ function will be instantiated by several threads in a given node, with each
 thread receiving messages on one socket*/
 void *receiver_thread(void *thread_data);
 
+/*Sleeps for a random amount of time, between 0-3500ms, to add asynchrony to
+the network*/
+void randsleep();
+
 #endif /* NODE_H */

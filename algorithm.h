@@ -143,6 +143,11 @@ into a new discovery phase, by receiving an INITIATE message from the next
 fragment level*/
 void report(struct node *node, struct node_data *ndata);
 
+/*Performs a node's "final report". This means after finishing the algorithm
+execution, each node must print the weight of its BRANCH edges to the global
+log, so we can see if the algorithm did, in fact, build the MST :)*/
+void output (struct node *node, struct node_data *ndata);
+
 /*Creates a message of the specified type, placing its content in the buffer
 provided in the input. Returns the length of the created message, in bytes.
 Returns 0 if message creation failed.*/

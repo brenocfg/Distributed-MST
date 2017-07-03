@@ -10,13 +10,11 @@ void ghs (struct node *node) {
   /*we 'wake up' every node by default*/
   wakeup(node, &node_data);
 
-  while(1) {
+  /*main infinite loop, read from message queue and react appropriately*/
+  uint8_t run = 1;
+  while(run) {
     /*nothing to do when there are no messages to process*/
     if (is_empty(node->queue)) {
-      char logmsg[60];
-      snprintf(logmsg, 60, "Empty queue, sleeping!");
-      log_msg(logmsg, node->log);
-      sleep(1);
       continue;
     }
 
@@ -63,8 +61,9 @@ void ghs (struct node *node) {
         break;
       }
       case MSG_REPORT: {
+        /*node should terminate execution based on report's return value*/
         if (process_report(node, &node_data, i, sock, inmsg)) {
-            return;
+            run = 0;
         }
         break;
       }
@@ -73,12 +72,15 @@ void ghs (struct node *node) {
         break;
       }
       default: {
-        fprintf(stderr, "Invalid message type at arrival! Info:\n");
-        fprintf(stderr, "Node: %d, msg_type: %d, weight: %d", node->id, msg_type, link->weight);
+        fprintf(stderr, "Invalid message type at arrival!\n");
         break;
       }
     }
   }
+
+  /*after node has finished running, print its output (the status of its edges)
+  to the global log*/
+  output(node, &node_data);
 }
 
 void process_connect(struct node *node, struct node_data *ndata,
@@ -308,10 +310,11 @@ void process_reject(struct node *node, struct node_data *ndata,
 uint8_t process_report(struct node *node, struct node_data *ndata,
                         uint16_t edge_index, uint32_t edge_sock, uint8_t *msg) {
     char logmsg[60];
-    uint16_t reported_weight;
+    uint16_t reported_weight, max_wt;
 
     /*retrieve message data*/
     reported_weight = (msg[3] << 8) | msg[4];
+    max_wt = (uint16_t) ~0;
 
     /*log message arrival*/
     snprintf(logmsg,60,"Received REPORT msg with LWOE cost %d",reported_weight);
@@ -351,7 +354,20 @@ uint8_t process_report(struct node *node, struct node_data *ndata,
     }
 
     /*if incoming edge has 'infinite' weight, the algorithm is done!*/
-    else if (reported_weight == ((uint16_t) ~0)) {
+    else if (reported_weight == max_wt && ndata->best_weight == max_wt) {
+        /*this is a hacky way to force termination for other nodes: we send them
+        report messages with maximum weight, so they are notified the algorithm
+        has finished as well*/
+        uint16_t i;
+        struct edge *link = node->neighs->head;
+        for (i = 0; i < ndata->num_neighs; i++) {
+          if (ndata->edge_status[i] == EDGE_BRANCH && i != ndata->in_branch) {
+            uint8_t outmsg[50];
+            uint8_t len=create_msg(MSG_REPORT,link->weight,0,ndata->best_weight,0,outmsg);
+            send(link->sock, outmsg, len, 0);
+          }
+          link = link->next;
+        }
         return 1;
     }
 
@@ -482,6 +498,34 @@ void report(struct node *node, struct node_data *ndata) {
                                                 ndata->best_weight, 0, outmsg);
         send(ndata->branch_sock, outmsg, len, 0);
     }
+}
+
+void output (struct node *node, struct node_data *ndata) {
+  char logmsg[60];
+
+  /*log beginning of final report*/
+  snprintf(logmsg, 60, "Node %d is reporting its BRANCH edges!", node->id);
+  log_msg(logmsg, node->globallog);
+
+  /*initialize report string*/
+  char *ptr = logmsg;
+  ptr += snprintf(logmsg, 60, "Node %d: ", node->id);
+
+  /*go through edges, appending their status*/
+  uint16_t i;
+  struct edge *link = node->neighs->head;
+  for (i = 0; i < ndata->num_neighs; i++) {
+    if (ndata->edge_status[i] == EDGE_BRANCH) {
+      ptr += snprintf(ptr,10,"%d ",link->weight);
+    }
+    link = link->next;
+  }
+  /*print final GHS algorithm log message for the node*/
+  log_msg(logmsg, node->globallog);
+
+  /*free its edge status array, which is the only dynamically allocated struct-
+  ture we malloc for each node in the algorithm implementation*/
+  free(ndata->edge_status);
 }
 
 uint8_t create_msg(uint8_t type, uint16_t weight, uint8_t level, uint16_t frag,

@@ -1,7 +1,7 @@
 #include "node.h"
 
 struct node *init_node(int32_t id, uint16_t *edges, uint32_t *socks, uint8_t num,
-              FILE *globallog) {
+                                                              FILE *globallog) {
   struct node *newnode;
   char logmsg[60];
 
@@ -50,9 +50,7 @@ void run_node(struct node *node, void(*algo) (struct node *node)) {
   uint32_t i;
   char logmsg[60];
 
-  /*log beginning of node execution*/
-  snprintf(logmsg, 60, "Node %d is beginning algorithm execution!", node->id);
-  log_msg(logmsg, node->log);
+  srand(time(NULL));
 
   /*start message-receiving threads for each of the node's sockets*/
   struct edge *aux = node->neighs->head;
@@ -66,7 +64,13 @@ void run_node(struct node *node, void(*algo) (struct node *node)) {
     aux = aux->next;
   }
 
-  /*run the node's algorithm implementation*/
+  /*sleep for a random amount of time so all nodes don't start simultaneously*/
+  randsleep();
+
+  /*log beginning of node execution and start algorithm*/
+  snprintf(logmsg, 60, "Node %d is beginning algorithm execution!", node->id);
+  log_msg(logmsg, node->log);
+
   algo(node);
 
   /*log node's execution finish*/
@@ -85,7 +89,7 @@ void log_msg(char *msg, FILE *logfile) {
   struct timeval tv;
   struct tm *tm_info;
   uint32_t ms;
-  char timestamp[40], hms[26];
+  char timestamp[15], hms[10];
 
   /*get time of day in secs and ms/usecs*/
   gettimeofday(&tv, NULL);
@@ -101,18 +105,18 @@ void log_msg(char *msg, FILE *logfile) {
   tm_info = localtime(&tv.tv_sec);
 
   /*concatenate localtime + milliseconds to final timestamp*/
-  strftime(hms, 50, "%H:%M:%S", tm_info);
-  snprintf(timestamp, 40, "%s.%03d", hms, ms);
+  strftime(hms, 10, "%H:%M:%S", tm_info);
+  snprintf(timestamp, 15, "%s.%03d", hms, ms);
 
   /*print given log message with the appropriate timestamp*/
   fprintf(logfile, "[%s] %s\n", timestamp, msg);
 }
 
 void free_node(struct node *node) {
-  char logmsg[50];
+  char logmsg[60];
 
   /*log the node's inevitable demise*/
-  snprintf(logmsg, 50, "Node %d says so long, and thanks for all the fish!",
+  snprintf(logmsg, 60, "Node %d says so long, and thanks for all the fish!",
                                                                       node->id);
   log_msg(logmsg, node->globallog);
 
@@ -123,7 +127,7 @@ void free_node(struct node *node) {
   free(node);
 }
 
-  void *receiver_thread(void *thread_data) {
+void *receiver_thread(void *thread_data) {
   /*retrieve thread data and initialize structures*/
   struct thread_data *data = (struct thread_data *) thread_data;
   struct msgqueue *queue = data->queue;
@@ -137,7 +141,15 @@ void free_node(struct node *node) {
   while (1) {
     memset(msg, 0, 50);
     if ((len = recv(sock, msg, 50, 0)) > 0) {
+      randsleep();
       enqueue(queue, msg, len);
     }
   }
+}
+
+void randsleep() {
+  long long int usec;
+
+  usec = rand() % 3500000L;
+  usleep(usec);
 }
