@@ -79,12 +79,12 @@ throughout execution, refer to that node's local log.
 
 # Asynchrony #
 
-Since it is 2017 and computers are really fast, simply forking child processes
-and letting them all execute happily ever after is not enough to simulate a
-truly asynchronous network, since nodes would execute, as a wise man once said,
-"as fast as lightning", almost as if they were kung-fu fighting. Therefore, a
-couple of tweaks were implemented to force a small amount of asynchrony in the
-network (though probably not the ideal amount):
+Since it is 2017 and computers are, like, **really** fast, simply forking
+child processes and letting them all execute happily ever after is not enough to
+simulate a truly asynchronous network, since nodes would execute, as a wise man
+once said, "as fast as lightning", almost as if they were kung-fu fighting.
+Therefore, a couple of tweaks were implemented to force a small amount of
+asynchrony in the network (though probably not the ideal amount):
 
 * The parent thread for each node sleeps for a random amount of time, between 0
 and ~4 seconds, before beginning node execution, to stop all nodes from waking
